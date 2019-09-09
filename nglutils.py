@@ -4,10 +4,10 @@ Use this with
 
     import sys
     sys.path.append('/path/to/this/file/')
-    import nglview_utils as ngu
+    import nglutils as ngu
     
     # Usage: given a list of 3d coordinates named xyz:
-    view = xyz2nglview(xyz)
+    view = ngu.xyz2nglview(xyz)
     view
 
 Note: use nglview-2.1.0 for this to work. Also, maybe have to
