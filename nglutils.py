@@ -90,11 +90,11 @@ def mdtop_for_polymer(N):
     """
     top = mdtraj.Topology()
     ch = top.add_chain()
-    res = top.add_residue("res", ch)
-    top.add_atom('CA', mdtraj.element.carbon, res)
+    res = top.add_residue("000", ch)
+    top.add_atom('at0', mdtraj.element.helium, res)
     for i in range(1, N):
-        res = top.add_residue("res", ch)
-        atom = top.add_atom('CA', mdtraj.element.carbon, res)
+        res = top.add_residue("{0:03d}".format(i%1000), ch)
+        atom = top.add_atom("at{0}".format(i), mdtraj.element.helium, res)
         top.add_bond(atom, top.atom(i-1))
     return top
 
@@ -146,7 +146,7 @@ def mdtraj2nglview(mdtrajs, cmaps=[plt.cm.viridis]):
     
     return view
 
-def xyz2nglview(xyz_array, cmaps=[plt.cm.viridis], top=None):
+def xyz2nglview(xyz_array, cmaps=plt.cm.viridis, top=None, scale=1):
     """ 
     Show an array containing xyz coordinates with nglview.
     This is just a quick shortcut for the two commands shown.
@@ -154,13 +154,15 @@ def xyz2nglview(xyz_array, cmaps=[plt.cm.viridis], top=None):
     """
     if not isinstance(xyz_array, list):
         xyz_array = [xyz_array]
+    if not isinstance(cmaps, list):
+        cmaps = [cmaps]
         
     if top is None:
-        traj = [xyz2mdtraj(xyz_array[i]) for i in range(len(xyz_array))]
+        traj = [xyz2mdtraj(scale*xyz_array[i]) for i in range(len(xyz_array))]
     else:
         if not isinstance(top, list):
             top = [top]
-        traj = [xyz2mdtraj(xyz_array[i], top[i]) for i in range(len(xyz_array))]
+        traj = [xyz2mdtraj(scale*xyz_array[i], top[i]) for i in range(len(xyz_array))]
         
     view = mdtraj2nglview(traj, cmaps)
     
