@@ -31,7 +31,10 @@ import openmmlib
 # ----------- Handling of hexcolors -----------------
 
 def color_as_hexstring(val, cmap=plt.cm.viridis, include_alpha=False):
-    """ Maps a scalar in [0, 1] to a color and represents it as a string, e.g. 0xff440154 (for viridis(0)) """
+    """
+    Maps a scalar in [0, 1] to a color and represents it as a string, e.g.
+    0xff440154 (for viridis(0))
+    """
     col = cmap(float(max(0, min(val, 1)))) # Clamping val to [0, 1]
     if include_alpha:
         return "0x{3:02x}{0:02x}{1:02x}{2:02x}".format(int(255*col[0]),
@@ -43,8 +46,9 @@ def color_as_hexstring(val, cmap=plt.cm.viridis, include_alpha=False):
     
 def hexcolors_polymers(lengths, maps=[plt.cm.viridis]):
     """
-    Generate a list of colors for use in nglview.NGLWidget._set_color_by_residue
-    The idea is to patch several colormaps (or the same one multiple times), one for each chain.
+    Generate a list of colors for use in nglview.NGLWidget._set_color_by_residue.
+    The idea is to patch several colormaps (or the same one multiple times),
+    one for each chain.
     
     Parameters
     ----------
@@ -70,8 +74,8 @@ def hexcolors_polymers(lengths, maps=[plt.cm.viridis]):
 
 def load_traj_from_path(path, mon):
     """
-    Load trajectory of monomer mon into an array.
-    The folder in path is assumed to have the openmmlib generated structure of block*.dat
+    Load trajectory of monomer mon into an array.  The folder in path is
+    assumed to have the openmmlib generated structure of block*.dat
     """
     filenames = openmmlib.polymerutils.scanBlocks(path)["files"]
 
@@ -84,9 +88,16 @@ def load_traj_from_path(path, mon):
 
 # ------------ Displaying polymers with nglview -------------
 
-def mdtop_for_polymer(N):
+def mdtop_for_polymer(N, exclude_bonds=np.array([])):
     """
     Generate an mdtraj.Topology object for a single polymer of length N.
+    Optional arguments:
+        - exclude_bonds = [2, 5, 5788]: bonds to not include in the topology. Number refers
+                                        to the second atom of the bond, i.e. atoms numbers
+                                        are 0---(N-1), bond numbers are 1---(N-1)
+          Use case: visualize compartments. nglview has large memory overhead for visualizing
+                    many short chains, so put all compartments into one chain and exclude the
+                    bonds between them.
     """
     top = mdtraj.Topology()
     ch = top.add_chain()
@@ -95,20 +106,24 @@ def mdtop_for_polymer(N):
     for i in range(1, N):
         res = top.add_residue("{0:03d}".format(i%1000), ch)
         atom = top.add_atom("at{0}".format(i), mdtraj.element.helium, res)
-        top.add_bond(atom, top.atom(i-1))
+        if not i in exclude_bonds:
+            top.add_bond(atom, top.atom(i-1))
     return top
 
-def xyz2mdtraj(xyz_array, top=None):
+def xyz2mdtraj(xyz_array, top=None, exclude_bonds=np.array([])):
     """
-    Generate an mdtraj.Trajectory from a numpy array with coordinates.
-    This is done via transient writing of an .xyz file.
+    Generate an mdtraj.Trajectory from a numpy array with coordinates.  This is
+    done via transient writing of an .xyz file.
     
     Parameters
     ----------
     xyz_array : np.array
-        either (n_atoms, 3) or (n_frames, n_atoms, 3). The coordinates of the atoms.
+        either (n_atoms, 3) or (n_frames, n_atoms, 3). The coordinates of the
+        atoms.
     top : mdtraj.Topology
         topology of the chain. If omitted, a single long chain is assumed.
+    exclude_bonds : list of bonds to exclude. See mdtop_for_polymer. Ignored if
+        top is given
     """
     if len(xyz_array.shape) == 2:
         xyz_array = np.expand_dims(xyz_array, 0)
@@ -116,7 +131,7 @@ def xyz2mdtraj(xyz_array, top=None):
         error('xyz_array has to have shape (n_atoms, 3) or (n_frames, n_atoms, 3)!')
     
     if top is None:
-        top = mdtop_for_polymer(xyz_array.shape[1])
+        top = mdtop_for_polymer(xyz_array.shape[1], exclude_bonds=exclude_bonds)
      
     with tempfile.TemporaryDirectory() as tmpdir:
         filename = os.path.join(tmpdir, 'poly.xyz')
@@ -128,7 +143,8 @@ def xyz2mdtraj(xyz_array, top=None):
 
 def mdtraj2nglview(mdtrajs, cmaps=[plt.cm.viridis]):
     """
-    Displays one or several mdtraj trajectories together, using the specified color maps
+    Displays one or several mdtraj trajectories together, using the specified
+    color maps
     
     Parameters
     ----------
@@ -146,19 +162,35 @@ def mdtraj2nglview(mdtrajs, cmaps=[plt.cm.viridis]):
     
     return view
 
-def xyz2nglview(xyz_array, cmaps=plt.cm.viridis, top=None, scale=1):
+def xyz2nglview(xyz_array, cmaps=plt.cm.viridis, top=None, scale=1, exclude_bonds=[np.array([])]):
     """ 
-    Show an array containing xyz coordinates with nglview.
-    This is just a quick shortcut for the two commands shown.
-    If xyz_array is a list of such arrays, it is assumed that top is a list of the same length (or None).
+    Show an array containing xyz coordinates with nglview.  This is just a
+    quick shortcut for the two commands shown.  If xyz_array is a list of such
+    arrays, it is assumed that top is a list of the same length (or None).
+    Optional arguments:
+        - scale = 5: scale up all coordinates. Used to prevent nglview from
+                     introducing unwanted bonds between nearby atoms. Also
+                     usable to adjust relative thickness of the bonds
+        - exclude_bonds = np.array([5, 65, 185]): bonds to exclude from
+                     topology. See notes at 'mdtop_for_polymer'.  Should be a
+                     list, if more than one chain is provided.  Ignored if
+                     topology is given explicitly.
     """
     if not isinstance(xyz_array, list):
         xyz_array = [xyz_array]
-    if not isinstance(cmaps, list):
-        cmaps = [cmaps]
+        if not isinstance(cmaps, list):
+            cmaps = [cmaps]
+        if not isinstance(exclude_bonds, list):
+            exclude_bonds = [exclude_bonds]
+    else: # Check that exclude_bonds are compatible with list.
+          # cmaps are automatically tiled, so that's okay
+        if not isinstance(exclude_bonds, list):
+            raise ValueError
+        if len(exclude_bonds) == 1 and exclude_bonds[0].size == 0:
+            exclude_bonds = [np.array([]) for jj in range(len(xyz_array))]
         
     if top is None:
-        traj = [xyz2mdtraj(scale*xyz_array[i]) for i in range(len(xyz_array))]
+        traj = [xyz2mdtraj(scale*xyz_array[i], exclude_bonds=exclude_bonds[i]) for i in range(len(xyz_array))]
     else:
         if not isinstance(top, list):
             top = [top]
