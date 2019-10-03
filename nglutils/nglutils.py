@@ -1,14 +1,5 @@
 """
-Small custom utility functions, including plotting with nglview.
-Use this with
-
-    import sys
-    sys.path.append('/path/to/this/file/')
-    import nglutils as ngu
-    
-    # Usage: given a list of 3d coordinates named xyz:
-    view = ngu.xyz2nglview(xyz)
-    view
+A collection of helper functions that come in handy when working with NGLViewer
 
 Note: use nglview-2.1.0 for this to work. Also, maybe have to
 $jupyter-nbextension enable --py --user widgetsnbextension
@@ -85,32 +76,31 @@ def mdtop_for_polymer(N, exclude_bonds=np.array([]), add_bonds=np.array([]), cha
           to give a seven digit atom number
     """
     # Check that chains are good
-    chains.sort()
-    chains = np.array(chains)
-    if not all(chains[:, 0] == [0, *chains[:-1, 1]]):
+    npchains = np.sort(np.array(chains), axis=0)
+    if not all(npchains[:, 0] == [0, *npchains[:-1, 1]]):
         print("WARNING: chains should be contiguous! Using one long chain.")
-        chains = np.array([(0, N, 0)])
-    if chains[-1, 1] is None:
-        chains[-1, 1] = N
+        npchains = np.array([(0, N, 0)])
+    if npchains[-1, 1] is None:
+        npchains[-1, 1] = N
 
     # Check that atom names are good
     if isinstance(atom_names, str):
         atom_names = [atom_names[:3] for _ in range(N)]
-    else if not isinstance(atom_names, list) or not len(atom_names) == N:
+    elif not isinstance(atom_names, list) or not len(atom_names) == N:
         print("WARNING: atom_names should be a list of length N = {}. Using default." % N)
         atom_names = ["XXX" for _ in range(N)]
 
     # Generate topology
     top = mdtraj.Topology()
     resi = 0
-    for chspec in chains:
+    for chspec in npchains:
         ch = top.add_chain()
-        res = top.add_residue("{0:03d}".format(int(np.floor(resi/1000))), ch)
+        res = top.add_residue("{0:03d}".format(int(np.floor(resi/10000))), ch)
         first_atom = top.add_atom(atom_names[resi], mdtraj.element.iron, res)
         resi += 1
         prev_atom = first_atom
         for _ in range(chspec[0]+1, chspec[1]):
-            res = top.add_residue("{0:03d}".format(int(np.floor(resi/1000))), ch)
+            res = top.add_residue("{0:03d}".format(int(np.floor(resi/10000))), ch)
             cur_atom = top.add_atom(atom_names[resi], mdtraj.element.iron, res)
             resi += 1
             if not resi in exclude_bonds:
@@ -169,57 +159,115 @@ def mdtraj2nglview(mdtrajs, cmaps=[plt.cm.viridis]):
     mdtrajs : list of mdtraj.Trajectory
     cmaps : list of colormaps
     """
+    if not isinstance(mdtrajs, list):
+        mdtrajs = [mdtrajs]
     if not isinstance(cmaps, list):
         cmaps = [cmaps]
 
-    traj = mdtrajs[0]
-    for i in range(1, len(mdtrajs)):
-        traj = traj.stack(mdtrajs[i])
+    #traj = mdtrajs[0]
+    #for i in range(1, len(mdtrajs)):
+    #    traj = traj.stack(mdtrajs[i])
     
-    view = nglview.show_mdtraj(traj)
-    view.clear_representations()
-    for i in range(len(mdtrajs)):
-        # add representations for all trajs
-        view.add_representation('licorice', selection=':{0}'.format(chr(65+i)),
+    #view = nglview.show_mdtraj(traj)
+    view = nglview.NGLWidget()
+    for i, traj in enumerate(mdtrajs):
+        view.add_trajectory(traj)
+        view.clear_representations(component=i)
+        cScale = hexscale_from_cmap(cmaps[i%len(cmaps)], traj.n_atoms)
+        view.add_representation('licorice', component=i,
+                                            selection='all',
                                             colorScheme='atomindex',
-                                            colorScale=hexscale_from_cmap(cmaps[i], mdtrajs[i].n_atoms))
+                                            colorScale=cScale)
     
     return view
 
-def xyz2nglview(xyz_array, cmaps=plt.cm.viridis, top=None, scale=1, exclude_bonds=[np.array([])]):
+def xyz2nglview(xyz_array, cmaps=plt.cm.viridis, top=None):
     """ 
-    Show an array containing xyz coordinates with nglview.  This is just a
-    quick shortcut for the two commands shown.  If xyz_array is a list of such
-    arrays, it is assumed that top is a list of the same length (or None).
-    Optional arguments:
-        - scale = 5: scale up all coordinates. Used to prevent nglview from
-                     introducing unwanted bonds between nearby atoms. Also
-                     usable to adjust relative thickness of the bonds
-        - exclude_bonds = np.array([5, 65, 185]): bonds to exclude from
-                     topology. See notes at 'mdtop_for_polymer'.  Should be a
-                     list, if more than one chain is provided.  Ignored if
-                     topology is given explicitly.
+    Display a trajectory / trajectories with nglview.
+
+    Parameters
+    ----------
+    xyz_array : np.array of shape (any, any, 3) or (any, 3), or list of such
+        the trajectory data. If given as a list, the single arrays will be
+        added to the view as different components. If the array is
+        three-dimensional, the first dimension is assumed to be time.
+    cmaps : function, or list of such
+        colormap(s) to use. Will be cycled through if shorter than number of
+        trajectories. Should be a function taking a scalar value between 0 and
+        1 and returning an rgb triplet, such as for example plt.cm.viridis
+    top : mdtraj.Topology
+        topology of the trajectories. mdtop_for_polymer comes in handy here.
     """
     if not isinstance(xyz_array, list):
         xyz_array = [xyz_array]
-        if not isinstance(cmaps, list):
-            cmaps = [cmaps]
-        if not isinstance(exclude_bonds, list):
-            exclude_bonds = [exclude_bonds]
-    else: # Check that exclude_bonds are compatible with list.
-          # cmaps are automatically tiled, so that's okay
-        if not isinstance(exclude_bonds, list):
-            raise ValueError
-        if len(exclude_bonds) == 1 and exclude_bonds[0].size == 0:
-            exclude_bonds = [np.array([]) for jj in range(len(xyz_array))]
+    if not isinstance(cmaps, list):
+        cmaps = [cmaps]
         
     if top is None:
-        traj = [xyz2mdtraj(scale*xyz_array[i], exclude_bonds=exclude_bonds[i]) for i in range(len(xyz_array))]
+        traj = [xyz2mdtraj(xyz_array[i]) for i in range(len(xyz_array))]
     else:
         if not isinstance(top, list):
             top = [top]
-        traj = [xyz2mdtraj(scale*xyz_array[i], top[i]) for i in range(len(xyz_array))]
+        if not len(top) == len(xyz_array):
+            raise ValueError("Need a topology for every trajectory!")
+
+        traj = [xyz2mdtraj(xyz_array[i], top[i]) for i in range(len(xyz_array))]
         
     view = mdtraj2nglview(traj, cmaps)
     
     return view
+
+def add_uniform_rep(view, color, selection='all', component=0, **kwargs):
+    """
+    A shortcut to add a uniformly colored representation to the view.
+
+    Parameters
+    ----------
+    view : NGLWidget
+        the view in question
+    selection : string
+        a selection string. For the format, see here:
+        http://nglviewer.org/ngl/api/manual/selection-language.html
+    color : int
+        a color value, in the format 0xrrggbb
+    """
+    view.add_representation('licorice', component=component,
+                                        selection=selection,
+                                        colorScheme='uniform',
+                                        colorValue=color,
+                                        **kwargs)
+
+def add_colormap_rep(view, cmap, selection='all', component=0, Nscale=100, **kwargs):
+    """
+    A shortcut to color a polymer with a given colormap.
+
+    Parameters
+    ----------
+    view : NGLWidget
+        the view in question
+    cmap : function or list of colors (either hex values or strings)
+        a function taking a scalar value and giving an rgb color, such as for
+        example plt.cm.viridis
+        OR
+        a list of colors, which will be handed to the colorScale argument of
+        the representation. Examples: ["Red", "Yellow", "Green"]
+                                      [0xff0000, 0xffff00, 0x0000ff]
+    Nscale : int
+        number of discretization steps for the colormap, if given as function
+    selection : string
+        selection string. For the format, see
+        http://nglviewer.org/ngl/api/manual/selection-language.html
+    component : int
+        the component of the view we are talking about (usually there's only
+        one)
+    """
+    if isinstance(cmap, list):
+        cScale = cmap
+    else:
+        cScale = hexscale_from_cmap(cmap, Nscale)
+
+    view.add_representation('licorice', component=component,
+                                        selection=selection,
+                                        colorScheme='residueindex',
+                                        colorScale=cScale,
+                                        **kwargs)
