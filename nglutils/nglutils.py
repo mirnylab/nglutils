@@ -1,7 +1,7 @@
 """
 A collection of helper functions that come in handy when working with NGLViewer
 
-Note: use nglview-2.1.0 for this to work. Also, maybe have to
+Note: may have to run the following commands in shell
 $jupyter-nbextension enable --py --user widgetsnbextension
 $jupyter-nbextension enable --py --user nglview
 """
