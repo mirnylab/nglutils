@@ -17,7 +17,7 @@ import numpy as np
 import mdtraj
 import nglview
 
-# ----------- Handling of hexcolors -----------------
+# ----------- Utilities -----------------
 
 def hexscale_from_cmap(cmap, N):
     """
@@ -39,6 +39,24 @@ def hexscale_from_cmap(cmap, N):
     """
     rgb = [(round(255*col[0]), round(255*col[1]), round(255*col[2])) for col in map(cmap, np.arange(N)/(N-1))]
     return [0x010000*col[0] + 0x000100*col[1] + 0x000001*col[2] for col in rgb]
+
+def intlist_to_alpha(intlist):
+    """
+    Convert a list of integers [0, 0, 1, 1, 5, ...] to a list of letters [A, A,
+    B, B, F, ...]. Useful for converting monomer types to compartment names
+    (which can then be used as atom names).
+
+    Parameters
+    ----------
+    intlist : list of int
+        list to be converted
+
+    Notes
+    -----
+    If intlist has values >= 27, you will get the corresponding Unicode
+    literals.
+    """
+    return [chr(65+i) for i in intlist]
 
 # ------------ Displaying polymers with nglview -------------
 
