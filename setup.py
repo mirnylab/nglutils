@@ -12,7 +12,7 @@ setup(
     url='https://github.com/mirnylab/nglutils',
     packages=find_packages(exclude=('tests', 'docs')),
     install_requires=[
-        'matplotlib', 'numpy', 'mdtraj', 'openmmlib', 'openmm', 'nglview'
+        'matplotlib', 'numpy', 'mdtraj', 'nglview'
         # Jupyter and widgets are currently not included in the dependencies
     ])
 

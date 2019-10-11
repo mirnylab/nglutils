@@ -279,7 +279,7 @@ def add_colormap_rep(view, cmap, selection='all', component=0, Nscale=100, **kwa
         the component of the view we are talking about (usually there's only
         one)
     """
-    if isinstance(cmap, list):
+    if isinstance(cmap, list) or isinstance(cmap, str):
         cScale = cmap
     else:
         cScale = hexscale_from_cmap(cmap, Nscale)
