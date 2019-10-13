@@ -1,2 +1,2 @@
-from nglutils import *
+from .nglutils import *
 from . import colors
