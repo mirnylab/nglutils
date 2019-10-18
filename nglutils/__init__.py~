@@ -1,2 +1,2 @@
-from .main import *
+from .nglutils import *
 from . import colors
