@@ -72,7 +72,10 @@ def mdtop_for_polymer(N, exclude_bonds=np.array([]), add_bonds=np.array([]), cha
           it would try to calculate bonds again (even though this would be nice
           for some representations)
         - we can exploit the way NGLView displays the residue name and number
-          to give a seven digit atom number
+          to give a seven digit atom number. Note that this will be incorrect
+          when the part assigned to the residue number has leading zeroes, such
+          as for atom number 10100, which should be displayed as [001]0100, but
+          will be [001]100.
     """
     # Check that chains are good
     npchains = np.sort(np.array(chains), axis=0)
@@ -94,12 +97,12 @@ def mdtop_for_polymer(N, exclude_bonds=np.array([]), add_bonds=np.array([]), cha
     resi = 0
     for chspec in npchains:
         ch = top.add_chain()
-        res = top.add_residue("{0:03d}".format(int(np.floor(resi/10000))), ch)
+        res = top.add_residue("{0:03d}".format(resi // 10000), ch)
         first_atom = top.add_atom(atom_names[resi], mdtraj.element.iron, res)
         resi += 1
         prev_atom = first_atom
         for _ in range(chspec[0]+1, chspec[1]):
-            res = top.add_residue("{0:03d}".format(int(np.floor(resi/10000))), ch)
+            res = top.add_residue("{0:03d}".format(resi // 10000), ch)
             cur_atom = top.add_atom(atom_names[resi], mdtraj.element.iron, res)
             resi += 1
             if not resi in exclude_bonds:
