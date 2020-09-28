@@ -1,5 +1,7 @@
 # nglutils
-Utility module for using nglview to visualize stuff
+Utility module for using nglview to visualize stuff.
+
+_ENABLE JUPYTER EXTENSIONS!_ See installation section.
 
 # Examples
 See the included jupyter notebook for example usage.
