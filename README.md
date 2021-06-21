@@ -21,3 +21,6 @@ the NGL widget:
 $jupyter-nbextension enable --py --user widgetsnbextension
 $jupyter-nbextension enable --py --user nglview
 ```
+
+This should be compatible with jupyterlab, as long as jupyterlab >= 3 and
+nglview >= 3 are installed.
